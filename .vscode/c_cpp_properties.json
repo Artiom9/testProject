@@ -1,27 +1,21 @@
 {
-    "configurations": [
-        {
-            "name": "STM32 F1",
-            "includePath": [
-                "${workspaceFolder}/**"
-            ],
-            "defines": [
-                "_DEBUG",
-                "UNICODE",
-                "_UNICODE",
-                "USE_HAL_DRIVER",
-                "STM32F103xG"
-            ],
-            "windowsSdkVersion": "10.0.18362.0",
-            "compilerPath": "${env:ARMGCC_DIR}/arm-none-eabi-gcc.exe",
-            "compilerArgs": [
-                "-mcpu=cortex-m3",
-                "-mthumb"
-            ],
-            "cStandard": "c11",
-            "cppStandard": "c++17",
-            "intelliSenseMode": "gcc-arm"
-        }
-    ],
-    "version": 4
+  "configurations": [
+    {
+      "name": "STM32",
+      "includePath": [
+        "Core/Inc",
+        "Core/Src",
+        "Drivers/CMSIS/Device/ST/STM32F1xx/Include",
+        "Drivers/CMSIS/Include",
+        "Drivers/STM32F1xx_HAL_Driver/Inc",
+        "Drivers/STM32F1xx_HAL_Driver/Inc/Legacy"
+      ],
+      "defines": [
+        "STM32F103xG",
+        "USE_HAL_DRIVER"
+      ],
+      "compilerPath": "E:\\DEV\\TOOLS\\GCC-ARM-NONE-EABI-10-2020-Q4-MAJOR\\BIN\\ARM-NONE-EABI-GCC.EXE"
+    }
+  ],
+  "version": 4
 }
