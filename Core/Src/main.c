@@ -39,14 +39,27 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
+#ifndef __cplusplus
+typedef unsigned char bool;
+static const bool false = 0;
+static const bool true = 1;
+#endif
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
+
+bool verifyCode(uint32_t code);
 void UART_Printf(const char *fmt, ...);
+bool verifyMode();
+void verifyKey();
+void switchedModes();
+void switchMode();
+void blink(int blinkTimes);
+void read();
+void openDoor();
 
 volatile uint8_t wig_flag_inrt = 1;
 /* USER CODE END PV */
@@ -61,6 +74,20 @@ static void MX_USART1_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+  /*
+    0 - normal
+    1 - closed
+    2 - open
+    3 - conditionally open
+    4 - temporarily open
+    5 - alarm
+  */
+  int workMode = 0;
+
+  // is door opened?
+  bool isDoorOpened = false;
+
 /* USER CODE END 0 */
 
 /**
@@ -93,6 +120,8 @@ int main(void)
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
+  
+  uint32_t timme = 0;
 
   /* USER CODE END 2 */
 
@@ -100,27 +129,54 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+
+    if( (HAL_GetTick() - timme) > 15000 ){
+      switchMode();
+      timme = HAL_GetTick();
+    }
+
     if(wig_available())
     {
-      wig_flag_inrt = 0;
-      uint32_t wcode = getCode();
-      wig_flag_inrt = 1;
-
-      HAL_GPIO_WritePin(GPIOB, GreenLed_1_Pin, RESET);
-      HAL_GPIO_WritePin(GPIOB, GreenLed_2_Pin, RESET);
-
-      if(wcode == 12563593){
-        char s[] = "Door was opened by key. Key ID: ";
-        char code[16];
-        sprintf(code,"%lu", wcode);
-
-        strcat(s, code);
-        strcat(s, ".\r\n");
-        UART_Printf(s);
-      }
-      else
+      if(workMode == 0)
       {
-        UART_Printf("Attempted to open the door with a wrong key.");
+        wig_flag_inrt = 0;
+        uint32_t wcode = getCode();
+        wig_flag_inrt = 1;
+
+        if(verifyCode(wcode)){
+          char s[] = "Door was opened by a key. Key ID: ";
+          char code[16];
+          sprintf(code,"%lu", wcode);
+
+          strcat(s, code);
+          strcat(s, ".\r\n");
+          UART_Printf(s);
+
+          openDoor();
+        }
+        else
+        {
+          UART_Printf("Attempted to open the door with a wrong key.");
+        }
+      }
+      else if(workMode == 1)
+      {
+        UART_Printf("Door is closed.\r\n");
+        blink(2);
+      }
+      else if(workMode == 2)
+      {
+        UART_Printf("Door is opened by default.\r\n");
+        HAL_GPIO_WritePin(GPIOB, GreenLed_1_Pin, RESET);
+        HAL_GPIO_WritePin(GPIOB, GreenLed_2_Pin, RESET);
+      }
+      else if(workMode == 3)
+      {
+        UART_Printf("Door is now opened by default.\r\n");
+        blink(1);
+        HAL_GPIO_WritePin(GPIOB, GreenLed_1_Pin, RESET);
+        HAL_GPIO_WritePin(GPIOB, GreenLed_2_Pin, RESET);
+        workMode = 2;
       }
     }
     /* USER CODE END WHILE */
@@ -262,23 +318,29 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
   if(GPIO_Pin == BT_0_Pin || GPIO_Pin == BT_1_Pin)
   {
-    HAL_GPIO_WritePin(GPIOB, GreenLed_1_Pin, RESET);
-    HAL_GPIO_WritePin(GPIOB, GreenLed_2_Pin, RESET);
-
     UART_Printf("Door was opened by a button.\r\n");
+
+    isDoorOpened = true;
+
+    openDoor();
   }
   else if(GPIO_Pin == Door_Pin)
   {
-    HAL_GPIO_WritePin(GPIOB, GreenLed_1_Pin, SET);
-    HAL_GPIO_WritePin(GPIOB, GreenLed_2_Pin, SET);
+    isDoorOpened = false;
 
-    UART_Printf("Door was closed.\r\n");
+    if(workMode != 2)
+    {
+      HAL_GPIO_WritePin(GPIOB, GreenLed_1_Pin, SET);
+      HAL_GPIO_WritePin(GPIOB, GreenLed_2_Pin, SET);
+    }
+
+    isDoorOpened = false;
   }
-  else if(wig_flag_inrt && GPIO_Pin == D_01_Pin)
+  else if( wig_flag_inrt && ( GPIO_Pin == D_01_Pin || GPIO_Pin == D_02_Pin) )
   {
     ReadD0();
   }
-  else if(wig_flag_inrt && GPIO_Pin == D_11_Pin)
+  else if( wig_flag_inrt && ( GPIO_Pin == D_11_Pin || GPIO_Pin == D_12_Pin) )
   {
     ReadD1();
   }
@@ -288,8 +350,26 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   }
 }
 
-void UART_Printf(const char *fmt, ...)
-{
+/*
+  verify if code is valid
+*/
+bool verifyCode(uint32_t code){
+  uint32_t codes[] = {
+    12563593
+  };
+
+  for(int i = 0; i < sizeof(codes)/sizeof(codes[0]); i++){
+    if(code == codes[i])
+      return true;
+  }
+
+  return false;
+}
+
+/*
+  print a string to the terminal
+*/
+void UART_Printf(const char *fmt, ...){
   char buff[256];
   va_list args;
   va_start(args, fmt);
@@ -298,7 +378,179 @@ void UART_Printf(const char *fmt, ...)
   va_end(args);
 }
 
+/*
+  check for the mode and work by it
+*/
+bool verifyMode()
+{
+  switch(workMode){
+    case 0:
+    {
+      return true;
+      break;
+    }
+    case 1:
+    { 
+      UART_Printf("Door is closed.\r\n");
+      blink(3);
+      return false;
+      break;
+    }
+    case 2:
+    {
+      UART_Printf("Door is opened by default.\r\n");
+      return false;
+      break;
+    }
+    case 3:
+    {
+      blink(1);
+      workMode = 2;
+      return false;
+      break;
+    }
+    default:
+    {
+      return false;
+      break;
+    }
+  }
+
+  return false;
+}
+
+/*
+  increment mode by one if it's not 3, then set it to 0
+*/
+void switchMode()
+{
+  if(workMode < 3){
+    workMode++;
+    switchedModes();
+    return;
+  }
+  else if(workMode >= 3){
+    workMode = 0;
+    switchedModes();
+    return;
+  }
+  else{
+    UART_Printf("Unable to switch modes. \r\n");
+  }
+}
+
+/*
+  print switching modes
+*/
+void switchedModes()
+{
+  UART_Printf("Switched to mode %d\r\n", workMode);
+  blink(1);
+  HAL_Delay(500);
+
+  blink(workMode);
+
+  if(workMode == 2)
+  {
+    HAL_GPIO_WritePin(GPIOB, GreenLed_1_Pin, RESET);
+    HAL_GPIO_WritePin(GPIOB, GreenLed_2_Pin, RESET);
+  }
+}
+
+/*
+  blink blinkTimes times
+*/
+void blink(int blinkTimes)
+{
+  for(int i = 0; i < blinkTimes; i++)
+  {
+    HAL_GPIO_WritePin(GPIOB, GreenLed_1_Pin, RESET);
+    HAL_GPIO_WritePin(GPIOB, GreenLed_2_Pin, RESET);
+    HAL_Delay(500);
+    HAL_GPIO_WritePin(GPIOB, GreenLed_1_Pin, SET);
+    HAL_GPIO_WritePin(GPIOB, GreenLed_2_Pin, SET);
+    HAL_Delay(500);
+  }
+}
+
+void read()
+{
+  // reading = true;
+  // HAL_Delay(36);
+
+  UART_Printf("test\r\n");
+
+  if(wig_available())
+  {
+    wig_flag_inrt = 0;
+    uint32_t wcode = getCode();
+    wig_flag_inrt = 1;
+
+    HAL_GPIO_WritePin(GPIOB, GreenLed_1_Pin, RESET);
+    HAL_GPIO_WritePin(GPIOB, GreenLed_2_Pin, RESET);
+
+    if(verifyCode(wcode)){
+      char s[] = "Door was opened by key. Key ID: ";
+      char code[16];
+      sprintf(code,"%lu", wcode);
+
+      strcat(s, code);
+      strcat(s, ".\r\n");
+      UART_Printf(s);
+    }
+    else
+    {
+      UART_Printf("Attempted to open the door with a wrong key.");
+    }
+  }
+
+  //reading = false;
+}
+
+void openDoor()
+{
+  isDoorOpened = true;
+
+  uint32_t auxTime = HAL_GetTick();
+
+  HAL_GPIO_WritePin(GPIOB, GreenLed_1_Pin, RESET);
+  HAL_GPIO_WritePin(GPIOB, GreenLed_2_Pin, RESET);
+
+  while((HAL_GetTick() - auxTime) < 3000)
+  {
+    if(!isDoorOpened)
+    {
+      HAL_GPIO_WritePin(GPIOB, GreenLed_1_Pin, SET);
+      HAL_GPIO_WritePin(GPIOB, GreenLed_2_Pin, SET);
+      UART_Printf("Door was closed.\r\n");
+      break;
+    }
+  }
+
+  // uint32_t auxTime = HAL_GetTick();
+
+  // HAL_GPIO_WritePin(GPIOB, GreenLed_1_Pin, RESET);
+  // HAL_GPIO_WritePin(GPIOB, GreenLed_2_Pin, RESET);
+
+  // UART_Printf("Door is opened.\r\n");
+
+  // while((HAL_GetTick() - auxTime) < 3000)
+  // {
+  //   if(!isDoorOpened)
+  //   {
+      // HAL_GPIO_WritePin(GPIOB, GreenLed_1_Pin, SET);
+      // HAL_GPIO_WritePin(GPIOB, GreenLed_2_Pin, SET);
+  //   }
+  // }
+
+  // if(isDoorOpened)
+  // {
+  //   UART_Printf("Warning! Door is still opened!\r\n");
+  // }
+}
+
 /* USER CODE END 4 */
+
 
 /**
   * @brief  This function is executed in case of error occurrence.
