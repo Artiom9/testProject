@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include "wiegand.h"
 #include <stdarg.h>
+// #include <stdbool.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -39,11 +40,11 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#ifndef __cplusplus
+/* #ifndef __cplusplus
 typedef unsigned char bool;
 static const bool false = 0;
 static const bool true = 1;
-#endif
+#endif */
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -66,16 +67,16 @@ static void MX_USART1_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-  enum WorkMode
-  {
-    NormalMode,
-    ClosedMode,
-    OpenMode,
-    CondOpenMode,
-    TempOpenMode,
-    AlarmMode
-  };
-  /**
+enum WorkMode
+{
+  NormalMode,
+  ClosedMode,
+  OpenMode,
+  CondOpenMode,
+  TempOpenMode,
+  AlarmMode
+};
+/**
    * NormalMode,
    * ClosedMode,
    * OpenMode,
@@ -83,93 +84,93 @@ static void MX_USART1_UART_Init(void);
    * TempOpenMode,
    * AlarmMode
   */
-  enum WorkMode workMode = NormalMode, previousWorkMode = NormalMode;
+WorkMode workMode = NormalMode, previousWorkMode = NormalMode;
 
-  enum States
-  {
-    OpenedState,
-    ClosedState,
-    NullState
-  };
-  /**
+enum States
+{
+  OpenedState,
+  ClosedState,
+  NullState
+};
+/**
    * OpenedState,
    * ClosedState,
    * NullState
   */
-  enum States doorState = ClosedState, relayState = ClosedState;
+States doorState = ClosedState, relayState = ClosedState;
 
-  enum RelayMode
-  {
-    Constant,
-    Impulse,
-    ConstantSwitch,
-    Valve,
-    Null
-  };
-  enum RelayMode relayMode = Constant;
-  
-  enum AlarmCause
-  {
-    OpenedDoor,
-    None
-  };
-  enum AlarmCause alarmCause = None;
+enum RelayMode
+{
+  Constant,
+  Impulse,
+  ConstantSwitch,
+  Valve,
+  Null
+};
+RelayMode relayMode = Constant;
 
-  // time ticker for verifying if 15 seconds passed to switch mode
-  uint32_t timme = 0;
+enum AlarmCause
+{
+  OpenedDoor,
+  None
+};
+AlarmCause alarmCause = None;
 
-  // was button to open the door pressed?
-  bool
-  insideButtonPressed = false,
-  outsideButtonPressed = false,
-  insideKeyRead = false;
-  outsideKeyRead = false;
-  firstTime = false,
-  doorRecentlyClosed = false,
-  alarmTrigger = false,
-  toBlink = false;
+// time ticker for verifying if 15 seconds passed to switch mode
+uint32_t timme = 0;
 
-  uint32_t
-  relayUnlockingTime = 0,
-  timmeTrack = 0,
-  blinkTime = 0;
-  blinkStart = 0;
+// was button to open the door pressed?
+bool
+    insideButtonPressed = false,
+    outsideButtonPressed = false,
+    insideKeyRead = false,
+    outsideKeyRead = false,
+    firstTime = false,
+    doorRecentlyClosed = false,
+    alarmTrigger = false,
+    toBlink = false;
 
+uint32_t
+    relayUnlockingTime = 0,
+    timmeTrack = 0,
+    blinkTime = 0,
+    blinkStart = 0;
 
-  // enum Direction
-  // {
-  //   IN,
-  //   OUT,
-  //   BOTH
-  // };
+// enum Direction
+// {
+//   IN,
+//   OUT,
+//   BOTH
+// };
 
-  // struct Key
-  // {
-  //   uint32_t code;
-  //   enum Direction direction;
-  //   uint32_t accessTime;
-  // };
+// struct Key
+// {
+//   uint32_t code;
+//   enum Direction direction;
+//   uint32_t accessTime;
+// };
 
-  /*----> Functions Declaration <----*/
+/*----> Functions Declaration <----*/
 
-  void timeTrackEvent();
-  void changeModeEvent();
-  void blinkEvent();
-  void intercomKeyEvent();
-  void buttonPressedEvent();
-  void doorUnlockEvent();
-  void doorClosedEvent();
-  void greenLightEvent();
-  void bellEvent();
-  void alarmEvent();
+void timeTrackEvent();
+void changeModeEvent();
+void blinkEvent();
+void intercomKeyEvent();
+void buttonPressedEvent();
+void doorUnlockEvent();
+void doorClosedEvent();
+void greenLightEvent();
+void bellEvent();
+void alarmEvent();
 
-  bool verifyCode(uint32_t code);
-  void UART_Printf(const char *fmt, ...);
-  void switchMode();
-  void blink();
-  void unlockDoor();
-  void lockDoor();
-  void doorChangedState(enum States currentState);
+bool verifyCode(uint32_t code);
+void UART_Printf(const char *fmt, ...);
+void switchMode();
+void blink(uint16_t blinkDurration);
+void unlockDoor();
+void unlockRelay();
+void lockDoor();
+void doorChangedState(enum States currentState);
 
 /* USER CODE END 0 */
 
@@ -260,8 +261,7 @@ void SystemClock_Config(void)
   }
   /** Initializes the CPU, AHB and APB buses clocks
   */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
@@ -303,7 +303,6 @@ static void MX_USART1_UART_Init(void)
   /* USER CODE BEGIN USART1_Init 2 */
 
   /* USER CODE END USART1_Init 2 */
-
 }
 
 /**
@@ -321,22 +320,22 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, Zumer1_Pin|Zumer2_Pin|GreenLed_1_Pin|GreenLed_2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, Zumer1_Pin | Zumer2_Pin | GreenLed_1_Pin | GreenLed_2_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pins : D_01_Pin D_11_Pin D_02_Pin D_12_Pin */
-  GPIO_InitStruct.Pin = D_01_Pin|D_11_Pin|D_02_Pin|D_12_Pin;
+  GPIO_InitStruct.Pin = D_01_Pin | D_11_Pin | D_02_Pin | D_12_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : BT_0_Pin BT_1_Pin */
-  GPIO_InitStruct.Pin = BT_0_Pin|BT_1_Pin;
+  GPIO_InitStruct.Pin = BT_0_Pin | BT_1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : Zumer1_Pin Zumer2_Pin GreenLed_1_Pin GreenLed_2_Pin */
-  GPIO_InitStruct.Pin = Zumer1_Pin|Zumer2_Pin|GreenLed_1_Pin|GreenLed_2_Pin;
+  GPIO_InitStruct.Pin = Zumer1_Pin | Zumer2_Pin | GreenLed_1_Pin | GreenLed_2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -363,7 +362,6 @@ static void MX_GPIO_Init(void)
 
   HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
-
 }
 
 /* USER CODE BEGIN 4 */
@@ -372,7 +370,7 @@ static void MX_GPIO_Init(void)
 
 void timeTrackEvent()
 {
-  if((HAL_GetTick() - timmeTrack) > 1000)
+  if ((HAL_GetTick() - timmeTrack) > 1000)
   {
     UART_Printf("Time passed: %d\r\n", (HAL_GetTick() - timme));
     timmeTrack = HAL_GetTick();
@@ -385,7 +383,7 @@ void timeTrackEvent()
 */
 void changeModeEvent()
 {
-  if( (HAL_GetTick() - timme) > 15000 )
+  if ((HAL_GetTick() - timme) > 15000)
   {
     switchMode();
     timme = HAL_GetTick();
@@ -394,10 +392,10 @@ void changeModeEvent()
 
 void blinkEvent()
 {
-  if(toBlink && (HAL_GetTick() - blinkStart) > blinkTime)
+  if (toBlink && (HAL_GetTick() - blinkStart) > blinkTime)
   {
-    HAL_GPIO_WritePin(GreenLed_1_GPIO_Port, GreenLed_1_Pin, SET);
-    HAL_GPIO_WritePin(GreenLed_2_GPIO_Port, GreenLed_2_Pin, SET);
+    HAL_GPIO_WritePin(GreenLed_1_GPIO_Port, GreenLed_1_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GreenLed_2_GPIO_Port, GreenLed_2_Pin, GPIO_PIN_SET);
     toBlink = false;
   }
 }
@@ -408,36 +406,42 @@ void blinkEvent()
 */
 void intercomKeyEvent()
 {
-  if(wig_available())
+  if (wig_available())
   {
-    if(insideKeyRead)
+    if (insideKeyRead)
       UART_Printf("Inside reader was used.\r\n");
 
-    if(outsideKeyRead)
+    if (outsideKeyRead)
       UART_Printf("Outside reader was used.\r\n");
 
-    switch(workMode)
-    {
-      case NormalMode:
-        unlockRelay();
-        break;
+    if(verifyCode(getCode()))
+    {  
+      switch (workMode)
+      {
+        case NormalMode:
+          unlockRelay();
+          UART_Printf("Code id: %d\r\n", getCode());
+          break;
 
-      case ClosedMode:
-        break;
+        case ClosedMode:
+          break;
 
-      case OpenMode:
-      case TempOpenMode:
-        blink(100);
-        break;
+        case OpenMode:
+        case TempOpenMode:
+          blink(100);
+          break;
 
-      case CondOpenMode:
-        workMode = OpenMode;
-        unlockRelay();
-        break;
+        case CondOpenMode:
+          workMode = OpenMode;
+          unlockRelay();
+          break;
 
-      default:
-        break;
+        default:
+          break;
+      }
     }
+    insideKeyRead = false;
+    outsideKeyRead = false;
   }
 }
 
@@ -446,35 +450,35 @@ void intercomKeyEvent()
  * @retval None
 */
 void buttonPressedEvent()
-{ 
-  if(insideButtonPressed)
+{
+  if (insideButtonPressed)
     UART_Printf("Inside button was pressed.\r\n");
 
-  if(outsideButtonPressed)
+  if (outsideButtonPressed)
     UART_Printf("Outside button was pressed.\r\n");
- 
-  if(outsideButtonPressed || insideButtonPressed)
+
+  if (outsideButtonPressed || insideButtonPressed)
   {
-    switch(workMode)
+    switch (workMode)
     {
-      case NormalMode:
-      case ClosedMode:
-        unlockRelay();
-        break;
+    case NormalMode:
+    case ClosedMode:
+      unlockRelay();
+      break;
 
-      case OpenMode:
-      case TempOpenMode:
-        blink(100);
-        break;
+    case OpenMode:
+    case TempOpenMode:
+      blink(100);
+      break;
 
-      case CondOpenMode:
-        workMode = OpenMode;
-        HAL_GPIO_WritePin(GreenLed_1_GPIO_Port, GreenLed_1_Pin, RESET);
-        HAL_GPIO_WritePin(GreenLed_2_GPIO_Port, GreenLed_2_Pin, RESET);
-        break;
+    case CondOpenMode:
+      workMode = OpenMode;
+      HAL_GPIO_WritePin(GreenLed_1_GPIO_Port, GreenLed_1_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(GreenLed_2_GPIO_Port, GreenLed_2_Pin, GPIO_PIN_RESET);
+      break;
 
-      default:
-        break;
+    default:
+      break;
     }
     outsideButtonPressed = false;
     insideButtonPressed = false;
@@ -483,17 +487,17 @@ void buttonPressedEvent()
 
 void doorUnlockEvent()
 {
-  if(doorRecentlyClosed)
+  if (doorRecentlyClosed)
   {
     lockDoor();
     doorRecentlyClosed = false;
   }
-  
-  if((HAL_GetTick() - relayUnlockingTime) > 10000 && !doorRecentlyClosed)
+
+  if ((HAL_GetTick() - relayUnlockingTime) > 10000 && !doorRecentlyClosed)
   {
     alarmCause = OpenedDoor;
   }
-  else if(doorState == ClosedState)
+  else if (doorState == ClosedState)
   {
     alarmCause = None;
   }
@@ -501,7 +505,7 @@ void doorUnlockEvent()
 
 void doorClosedEvent()
 {
-  if(doorState == ClosedState)
+  if (doorState == ClosedState)
   {
     //relay closing mechanics
     relayState == ClosedState;
@@ -510,91 +514,91 @@ void doorClosedEvent()
 
 void greenLightEvent()
 {
-  switch(relayState)
+  switch (relayState)
   {
-    case ClosedState:
-      HAL_GPIO_WritePin(GreenLed_1_GPIO_Port, GreenLed_1_Pin, SET);
-      HAL_GPIO_WritePin(GreenLed_2_GPIO_Port, GreenLed_2_Pin, SET);
-      break;
-    case OpenedState:
-      HAL_GPIO_WritePin(GreenLed_1_GPIO_Port, GreenLed_1_Pin, RESET);
-      HAL_GPIO_WritePin(GreenLed_2_GPIO_Port, GreenLed_2_Pin, RESET);
-      break;
-    default:
-      UART_Printf("Unknown relay state.\r\n");
+  case ClosedState:
+    HAL_GPIO_WritePin(GreenLed_1_GPIO_Port, GreenLed_1_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GreenLed_2_GPIO_Port, GreenLed_2_Pin, GPIO_PIN_SET);
+    break;
+  case OpenedState:
+    HAL_GPIO_WritePin(GreenLed_1_GPIO_Port, GreenLed_1_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GreenLed_2_GPIO_Port, GreenLed_2_Pin, GPIO_PIN_RESET);
+    break;
+  default:
+    UART_Printf("Unknown relay state.\r\n");
   }
 }
 
 void bellEvent()
 {
-  
 }
 
 void alarmEvent()
 {
-
 }
 
 /* Aux functions */
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-  switch(GPIO_Pin)
+  switch (GPIO_Pin)
   {
-    case BT_0_Pin:
-      insideButtonPressed = true;
-      break;
+  case BT_0_Pin:
+    insideButtonPressed = true;
+    break;
 
-    case BT_1_Pin:
-      outsideButtonPressed = true;
-      break;
+  case BT_1_Pin:
+    outsideButtonPressed = true;
+    break;
 
-    case Door_Pin:
-      if(HAL_GPIO_ReadPin(Door_GPIO_Port, Door_Pin) == 0)
-      {
-        doorState = OpenedState;
-      }
-      else if(HAL_GPIO_ReadPin(Door_GPIO_Port, Door_Pin) == 1)
-      {
-        doorState = ClosedState;
-        doorRecentlyClosed = true;
-      }
-      break;
+  case Door_Pin:
+  {
+    if (HAL_GPIO_ReadPin(Door_GPIO_Port, Door_Pin) == 0)
+    {
+      doorState = OpenedState;
+    }
+    else if (HAL_GPIO_ReadPin(Door_GPIO_Port, Door_Pin) == 1)
+    {
+      doorState = ClosedState;
+      doorRecentlyClosed = true;
+    }
+    break;
+  }
 
-    case D_01_Pin:
-      if(wig_flag_inrt)
-      {
-        ReadD0();
-        insideKeyRead = true;
-      }
-      break;
-    
-    case D_11_Pin:
-      if(wig_flag_inrt)
-      {
-        ReadD1();
-        insideKeyRead = true;
-      }
-      break;
+  case D_01_Pin:
+    if (wig_flag_inrt)
+    {
+      ReadD0();
+      insideKeyRead = true;
+    }
+    break;
 
-    case D_02_Pin:
-      if(wig_flag_inrt)
-      {
-        ReadD0();
-        outsideKeyRead = true;
-      }
-      break;
+  case D_11_Pin:
+    if (wig_flag_inrt)
+    {
+      ReadD1();
+      insideKeyRead = true;
+    }
+    break;
 
-    case D_12_Pin:
-      if(wig_flag_inrt)
-      {
-        ReadD1();
-        outsideKeyRead = true;
-      }
-      break;
-    
-    default:
-      break;
+  case D_02_Pin:
+    if (wig_flag_inrt)
+    {
+      ReadD0();
+      outsideKeyRead = true;
+    }
+    break;
+
+  case D_12_Pin:
+    if (wig_flag_inrt)
+    {
+      ReadD1();
+      outsideKeyRead = true;
+    }
+    break;
+
+  default:
+    break;
   }
 }
 
@@ -605,12 +609,12 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 */
 bool verifyCode(uint32_t code)
 {
-  uint32_t codes[] = {
-    12563593
-  };
+  uint32_t codes[] =
+      {12563593};
 
-  for(int i = 0; i < sizeof(codes)/sizeof(codes[0]); i++){
-    if(code == codes[i])
+  for (int i = 0; i < sizeof(codes) / sizeof(codes[0]); i++)
+  {
+    if (code == codes[i])
       return true;
   }
 
@@ -635,23 +639,24 @@ void UART_Printf(const char *fmt, ...)
 */
 void switchMode()
 {
-  if(workMode < 3)
+  if (workMode < 3)
   {
-    workMode++;
+    int temp = (int)workMode;
+    workMode = static_cast<WorkMode>(++temp);
   }
-  else if(workMode == 3)
+  else if (workMode == 3)
   {
-    workMode = 0;
+    workMode = NormalMode;
   }
   else
   {
     UART_Printf("Mode is higher than 3. \r\n");
   }
 
-  if(workMode == 2)
+  if (workMode == 2)
   {
-    HAL_GPIO_WritePin(GreenLed_1_GPIO_Port, GreenLed_1_Pin, RESET);
-    HAL_GPIO_WritePin(GreenLed_2_GPIO_Port, GreenLed_2_Pin, RESET);
+    HAL_GPIO_WritePin(GreenLed_1_GPIO_Port, GreenLed_1_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GreenLed_2_GPIO_Port, GreenLed_2_Pin, GPIO_PIN_RESET);
   }
 
   UART_Printf("Switched to mode %d\r\n", workMode);
@@ -664,8 +669,8 @@ void blink(uint16_t blinkDurration)
   toBlink = true;
   blinkTime = blinkDurration;
   blinkStart = HAL_GetTick();
-  HAL_GPIO_WritePin(GreenLed_1_GPIO_Port, GreenLed_1_Pin, RESET);
-  HAL_GPIO_WritePin(GreenLed_2_GPIO_Port, GreenLed_2_Pin, RESET);
+  HAL_GPIO_WritePin(GreenLed_1_GPIO_Port, GreenLed_1_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GreenLed_2_GPIO_Port, GreenLed_2_Pin, GPIO_PIN_RESET);
 }
 
 void unlockRelay()
@@ -674,16 +679,16 @@ void unlockRelay()
   // relay opening mechanics
   relayUnlockingTime = HAL_GetTick();
   relayState = OpenedState;
-  // previousWorkMode = workMode;
-  // workMode = 4;
+  previousWorkMode = workMode;
+  workMode = TempOpenMode;
 }
 
 void lockDoor()
 {
-  if(doorState == ClosedState)
+  if (doorState == ClosedState)
   {
-    HAL_GPIO_WritePin(GPIOB, GreenLed_1_Pin, SET);
-    HAL_GPIO_WritePin(GPIOB, GreenLed_2_Pin, SET);
+    HAL_GPIO_WritePin(GPIOB, GreenLed_1_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOB, GreenLed_2_Pin, GPIO_PIN_SET);
   }
   else
   {
@@ -707,7 +712,7 @@ void Error_Handler(void)
   /* USER CODE END Error_Handler_Debug */
 }
 
-#ifdef  USE_FULL_ASSERT
+#ifdef USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number
   *         where the assert_param error has occurred.
